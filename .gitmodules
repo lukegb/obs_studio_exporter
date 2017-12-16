@@ -1,0 +1,3 @@
+[submodule "third_party/obs-studio"]
+	path = third_party/obs-studio
+	url = git://github.com/jp9000/obs-studio.git
