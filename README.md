@@ -1,5 +1,7 @@
 # obs-studio-exporter
 
+[![Build status](https://ci.appveyor.com/api/projects/status/9q1o274gphwcp4v6?svg=true)](https://ci.appveyor.com/project/lukegb/obs-studio-exporter)
+
 *This is not an official Google product.*
 
 Exports metrics from [OBS Studio](https://obsproject.com) in a [Prometheus](https://prometheus.io)-compatible format.
