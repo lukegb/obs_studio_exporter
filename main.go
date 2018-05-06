@@ -51,6 +51,8 @@ type MetricCollector struct {
 	AverageFrameTimeNS *prometheus.Desc
 	TotalFrames        *prometheus.Desc
 	LaggedFrames       *prometheus.Desc
+	VideoTotalFrames   *prometheus.Desc
+	VideoSkippedFrames *prometheus.Desc
 
 	InfoPerOutput          *prometheus.Desc
 	OutputActivePerOutput  *prometheus.Desc
@@ -79,7 +81,9 @@ func NewMetricCollector() *MetricCollector {
 		ActiveFPS:          prometheus.NewDesc("obs_global_active_fps", "Active frames per second.", nil, prometheus.Labels{}),
 		AverageFrameTimeNS: prometheus.NewDesc("obs_global_average_frame_time_ns", "Average time to render a frame in nanoseconds.", nil, prometheus.Labels{}),
 		TotalFrames:        prometheus.NewDesc("obs_global_total_frames", "Total frames generated.", nil, prometheus.Labels{}),
-		LaggedFrames:       prometheus.NewDesc("obs_global_lagged_frames", "Lagged frames.", nil, prometheus.Labels{}),
+		LaggedFrames:       prometheus.NewDesc("obs_global_lagged_frames", "Skipped frames due to encoding lag.", nil, prometheus.Labels{}),
+		VideoTotalFrames:   prometheus.NewDesc("obs_global_video_total_frames", "Total video frames generated.", nil, prometheus.Labels{}),
+		VideoSkippedFrames: prometheus.NewDesc("obs_global_video_skipped_frames", "Frames missed due to rendering lab.", nil, prometheus.Labels{}),
 
 		InfoPerOutput:          prometheus.NewDesc("obs_output_info", "Information about this output.", []string{"output_id", "output_name", "output_display_name"}, prometheus.Labels{}),
 		OutputActivePerOutput:  prometheus.NewDesc("obs_output_active", "Whether the output is active.", []string{"output_id", "output_name"}, prometheus.Labels{}),
@@ -108,6 +112,8 @@ func (c *MetricCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.AverageFrameTimeNS
 	ch <- c.TotalFrames
 	ch <- c.LaggedFrames
+	ch <- c.VideoTotalFrames
+	ch <- c.VideoSkippedFrames
 
 	ch <- c.OutputActivePerOutput
 	ch <- c.TotalBytesPerOutput
@@ -141,6 +147,10 @@ func (c *MetricCollector) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(c.AverageFrameTimeNS, prometheus.GaugeValue, float64(C.obs_get_average_frame_time_ns()))
 	ch <- prometheus.MustNewConstMetric(c.TotalFrames, prometheus.CounterValue, float64(C.obs_get_total_frames()))
 	ch <- prometheus.MustNewConstMetric(c.LaggedFrames, prometheus.CounterValue, float64(C.obs_get_lagged_frames()))
+
+	vid := C.obs_get_video()
+	ch <- prometheus.MustNewConstMetric(c.VideoTotalFrames, prometheus.CounterValue, float64(C.video_output_get_total_frames(vid)))
+	ch <- prometheus.MustNewConstMetric(c.VideoSkippedFrames, prometheus.CounterValue, float64(C.video_output_get_skipped_frames(vid)))
 
 	c.enumOutputsCB = func(v unsafe.Pointer, o *C.obs_output_t) C.bool {
 		idC := C.obs_output_get_id(o)
