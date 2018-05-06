@@ -5,6 +5,7 @@ environment:
     GOPATH: c:\gopath
     GOVERSION: 1.10.2
     OBSVERSION: 21.1
+    OBSLONGVERSION: 21.1.0
     MSYSTEM: mingw64
     MSYS2_ARCH: x86_64
     MSYS2_DIR: msys64
@@ -20,7 +21,7 @@ install:
 
     go get -d -v ./...
 
-    appveyor DownloadFile https://github.com/jp9000/obs-studio/releases/download/%OBSVERSION%/OBS-Studio-%OBSVERSION%-Full-Installer.exe
+    appveyor DownloadFile https://github.com/obsproject/obs-studio/releases/download/%OBSLONGVERSION%/OBS-Studio-%OBSVERSION%-Full-Installer.exe
     OBS-Studio-%OBSVERSION%-Full-Installer.exe /S
     copy "c:\program files (x86)\obs-studio\bin\64bit\obs.dll" "c:\gopath\src\github.com\lukegb\obs_studio_exporter"
 
