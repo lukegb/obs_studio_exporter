@@ -1,12 +1,13 @@
 version: 1.0.{build}
 clone_folder: c:\gopath\src\github.com\lukegb\obs_studio_exporter
 environment:
-  GOPATH: c:\gopath
-  GOVERSION: 1.10.2
-  OBSVERSION: 20.1.3
-  MSYSTEM: mingw64
-  MSYS2_ARCH: x86_64
-  MSYS2_DIR: msys64
+  global:
+    GOPATH: c:\gopath
+    GOVERSION: 1.10.2
+    OBSVERSION: 21.1
+    MSYSTEM: mingw64
+    MSYS2_ARCH: x86_64
+    MSYS2_DIR: msys64
 install:
 - cmd: |
     git submodule update --init
