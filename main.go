@@ -21,17 +21,21 @@ package main
 #include <obs-module.h>
 #include <obs.h>
 
+typedef bool (*mc_enum_sources_proc)(void*, obs_source_t*);
 typedef bool (*mc_enum_outputs_proc)(void*, obs_output_t*);
 typedef bool (*mc_enum_encoders_proc)(void*, obs_encoder_t*);
 
+bool mc_enum_sources_cb(void*, obs_source_t*);
 bool mc_enum_outputs_cb(void*, obs_output_t*);
 bool mc_enum_encoders_cb(void*, obs_encoder_t*);
+void mc_volmeter_updated(void*, const float[MAX_AUDIO_CHANNELS], const float[MAX_AUDIO_CHANNELS], const float[MAX_AUDIO_CHANNELS]);
 */
 import "C"
 
 import (
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"sync"
 	"unsafe"
@@ -45,6 +49,25 @@ var (
 
 	activeMetricCollector *MetricCollector
 )
+
+const (
+	// number chosen by fair dice roll
+	circBufSamples = 32
+)
+
+type Source struct {
+	ID       string
+	CID      *C.char
+	Name     string
+	VolMeter *C.obs_volmeter_t
+	Channels int
+
+	mu        sync.Mutex
+	Pos       int
+	Magnitude [][circBufSamples]float64
+	Peak      [][circBufSamples]float64
+	InputPeak [][circBufSamples]float64
+}
 
 type MetricCollector struct {
 	ActiveFPS          *prometheus.Desc
@@ -72,6 +95,14 @@ type MetricCollector struct {
 	SampleRatePerEncoder *prometheus.Desc
 	ActivePerEncoder     *prometheus.Desc
 
+	MagnitudePerSourceChannel *prometheus.Desc
+	PeakPerSourceChannel      *prometheus.Desc
+	InputPeakPerSourceChannel *prometheus.Desc
+
+	mu      sync.Mutex
+	sources map[string]*Source
+
+	enumSourcesCB  func(unsafe.Pointer, *C.obs_source_t) C.bool
 	enumOutputsCB  func(unsafe.Pointer, *C.obs_output_t) C.bool
 	enumEncodersCB func(unsafe.Pointer, *C.obs_encoder_t) C.bool
 }
@@ -101,6 +132,12 @@ func NewMetricCollector() *MetricCollector {
 		HeightPerEncoder:     prometheus.NewDesc("obs_encoder_height", "Video height of this encoder.", []string{"encoder_id", "encoder_name"}, prometheus.Labels{}),
 		SampleRatePerEncoder: prometheus.NewDesc("obs_encoder_sample_rate", "Audio sample rate of this encoder.", []string{"encoder_id", "encoder_name"}, prometheus.Labels{}),
 		ActivePerEncoder:     prometheus.NewDesc("obs_encoder_active", "Whether the encoder is active.", []string{"encoder_id", "encoder_name"}, prometheus.Labels{}),
+
+		MagnitudePerSourceChannel: prometheus.NewDesc("obs_source_channel_magnitude", "Max source channel magnitude.", []string{"source_id", "source_name", "channel_id"}, prometheus.Labels{}),
+		PeakPerSourceChannel:      prometheus.NewDesc("obs_source_channel_peak", "Max source channel peak.", []string{"source_id", "source_name", "channel_id"}, prometheus.Labels{}),
+		InputPeakPerSourceChannel: prometheus.NewDesc("obs_source_channel_input_peak", "Max source channel input peak.", []string{"source_id", "source_name", "channel_id"}, prometheus.Labels{}),
+
+		sources: map[string]*Source{},
 	}
 }
 
@@ -130,6 +167,10 @@ func (c *MetricCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.HeightPerEncoder
 	ch <- c.SampleRatePerEncoder
 	ch <- c.ActivePerEncoder
+
+	ch <- c.MagnitudePerSourceChannel
+	ch <- c.PeakPerSourceChannel
+	ch <- c.InputPeakPerSourceChannel
 }
 
 func obsBoolMetric(b C.bool) float64 {
@@ -151,6 +192,88 @@ func (c *MetricCollector) Collect(ch chan<- prometheus.Metric) {
 	vid := C.obs_get_video()
 	ch <- prometheus.MustNewConstMetric(c.VideoTotalFrames, prometheus.CounterValue, float64(C.video_output_get_total_frames(vid)))
 	ch <- prometheus.MustNewConstMetric(c.VideoSkippedFrames, prometheus.CounterValue, float64(C.video_output_get_skipped_frames(vid)))
+
+	c.mu.Lock()
+	seenSources := map[string]bool{}
+	c.enumSourcesCB = func(v unsafe.Pointer, o *C.obs_source_t) C.bool {
+		idC := C.obs_source_get_id(o)
+		id := C.GoString(idC)
+		name := C.GoString(C.obs_source_get_name(o))
+
+		seenSources[id] = true
+
+		src, ok := c.sources[id]
+		if !ok {
+			src = &Source{
+				ID:   id,
+				Name: name,
+				CID:  C.CString(id),
+			}
+			negInf := math.Inf(-1)
+			vm := C.obs_volmeter_create(C.OBS_FADER_CUBIC)
+			if vm == nil {
+				log.Printf("failed to create volmeter for source %v/%v", id, name)
+				return C.bool(true)
+			}
+			src.VolMeter = vm
+			if ok := bool(C.obs_volmeter_attach_source(vm, o)); !ok {
+				log.Printf("failed to attach source %v/%v to volmeter", id, name)
+				C.obs_volmeter_destroy(vm)
+				return C.bool(true)
+			}
+			C.obs_volmeter_set_update_interval(vm, 1000)
+			C.obs_volmeter_add_callback(vm, C.obs_volmeter_updated_t(C.mc_volmeter_updated), unsafe.Pointer(src.CID))
+
+			//src.Channels = int(C.obs_volmeter_get_nr_channels(vm))
+			src.Channels = 2
+			src.Magnitude = make([][circBufSamples]float64, src.Channels)
+			src.Peak = make([][circBufSamples]float64, src.Channels)
+			src.InputPeak = make([][circBufSamples]float64, src.Channels)
+			for ch := 0; ch < src.Channels; ch++ {
+				var magnitude, peak, inputPeak [circBufSamples]float64
+				for n := 0; n < circBufSamples; n++ {
+					magnitude[n] = negInf
+					peak[n] = negInf
+					inputPeak[n] = negInf
+				}
+				src.Magnitude[ch] = magnitude
+				src.Peak[ch] = peak
+				src.InputPeak[ch] = inputPeak
+			}
+
+			c.sources[id] = src
+		} else {
+			ninf := math.Inf(-1)
+			for chn := 0; chn < src.Channels; chn++ {
+				magnitude := ninf
+				peak := ninf
+				inputPeak := ninf
+				for n := 0; n < circBufSamples; n++ {
+					magnitude = math.Max(magnitude, src.Magnitude[chn][n])
+					peak = math.Max(peak, src.Peak[chn][n])
+					inputPeak = math.Max(inputPeak, src.InputPeak[chn][n])
+				}
+				chnstr := fmt.Sprintf("%d", chn)
+				ch <- prometheus.MustNewConstMetric(c.MagnitudePerSourceChannel, prometheus.GaugeValue, magnitude, src.ID, src.Name, chnstr)
+				ch <- prometheus.MustNewConstMetric(c.PeakPerSourceChannel, prometheus.GaugeValue, peak, src.ID, src.Name, chnstr)
+				ch <- prometheus.MustNewConstMetric(c.InputPeakPerSourceChannel, prometheus.GaugeValue, inputPeak, src.ID, src.Name, chnstr)
+			}
+		}
+		return C.bool(true)
+	}
+	C.obs_enum_sources(C.mc_enum_sources_proc(C.mc_enum_sources_cb), nil)
+	for id, s := range c.sources {
+		if seenSources[id] {
+			continue
+		}
+		// Delete s.
+		delete(c.sources, id)
+		C.free(unsafe.Pointer(s.CID))
+		if s.VolMeter != nil {
+			C.obs_volmeter_destroy(s.VolMeter)
+		}
+	}
+	c.mu.Unlock()
 
 	c.enumOutputsCB = func(v unsafe.Pointer, o *C.obs_output_t) C.bool {
 		idC := C.obs_output_get_id(o)
@@ -178,7 +301,6 @@ func (c *MetricCollector) Collect(ch chan<- prometheus.Metric) {
 		id := C.GoString(idC)
 		name := C.GoString(C.obs_encoder_get_name(o))
 		displayName := C.GoString(C.obs_encoder_get_display_name(idC))
-		log.Println(id, name, displayName)
 
 		ch <- prometheus.MustNewConstMetric(c.InfoPerEncoder, prometheus.GaugeValue, 1, id, name, displayName, C.GoString(C.obs_encoder_get_codec(o)))
 		ch <- prometheus.MustNewConstMetric(c.WidthPerEncoder, prometheus.GaugeValue, float64(C.obs_encoder_get_width(o)), id, name)
@@ -208,6 +330,11 @@ func obs_module_load() C.bool {
 	return true
 }
 
+//export mc_enum_sources_cb_go
+func mc_enum_sources_cb_go(f unsafe.Pointer, s *C.obs_source_t) C.bool {
+	return activeMetricCollector.enumSourcesCB(f, s)
+}
+
 //export mc_enum_outputs_cb_go
 func mc_enum_outputs_cb_go(f unsafe.Pointer, s *C.obs_output_t) C.bool {
 	return activeMetricCollector.enumOutputsCB(f, s)
@@ -216,4 +343,39 @@ func mc_enum_outputs_cb_go(f unsafe.Pointer, s *C.obs_output_t) C.bool {
 //export mc_enum_encoders_cb_go
 func mc_enum_encoders_cb_go(f unsafe.Pointer, s *C.obs_encoder_t) C.bool {
 	return activeMetricCollector.enumEncodersCB(f, s)
+}
+
+func genSlice(inp unsafe.Pointer) []float64 {
+	out := make([]float64, C.MAX_AUDIO_CHANNELS)
+	for n := 0; n < C.MAX_AUDIO_CHANNELS; n++ {
+		out[n] = float64(*(*C.float)(unsafe.Pointer(uintptr(inp) + uintptr(n)*unsafe.Sizeof(C.float(0)))))
+	}
+	return out
+}
+
+//export mc_volmeter_updated_go
+func mc_volmeter_updated_go(f unsafe.Pointer, magnitude, peak, inputPeak unsafe.Pointer) {
+	id := C.GoString((*C.char)(f))
+
+	activeMetricCollector.mu.Lock()
+	src, ok := activeMetricCollector.sources[id]
+	if !ok {
+		log.Printf("unknown source %v", id)
+		activeMetricCollector.mu.Unlock()
+		return
+	}
+	activeMetricCollector.mu.Unlock()
+
+	src.mu.Lock()
+	defer src.mu.Unlock()
+
+	omagnitude := genSlice(magnitude)
+	opeak := genSlice(peak)
+	oinputPeak := genSlice(inputPeak)
+	for ch := 0; ch < src.Channels; ch++ {
+		src.Magnitude[ch][src.Pos] = omagnitude[ch]
+		src.Peak[ch][src.Pos] = opeak[ch]
+		src.InputPeak[ch][src.Pos] = oinputPeak[ch]
+	}
+	src.Pos = (src.Pos + 1) % circBufSamples
 }

@@ -20,6 +20,10 @@ package main
 #include <obs-module.h>
 #include <obs.h>
 
+bool mc_enum_sources_cb(void* f, obs_output_t* s) {
+	bool mc_enum_sources_cb_go(void*, obs_output_t*);
+	return mc_enum_sources_cb_go(f, s);
+}
 bool mc_enum_outputs_cb(void* f, obs_output_t* s) {
 	bool mc_enum_outputs_cb_go(void*, obs_output_t*);
 	return mc_enum_outputs_cb_go(f, s);
@@ -27,6 +31,10 @@ bool mc_enum_outputs_cb(void* f, obs_output_t* s) {
 bool mc_enum_encoders_cb(void* f, obs_encoder_t* s) {
 	bool mc_enum_encoders_cb_go(void*, obs_encoder_t*);
 	return mc_enum_encoders_cb_go(f, s);
+}
+void mc_volmeter_updated(void* f, const float magnitude[MAX_AUDIO_CHANNELS], const float peak[MAX_AUDIO_CHANNELS], const float input_peak[MAX_AUDIO_CHANNELS]) {
+	void mc_volmeter_updated_go(void*, const float[MAX_AUDIO_CHANNELS], const float[MAX_AUDIO_CHANNELS], const float[MAX_AUDIO_CHANNELS]);
+	mc_volmeter_updated_go(f, magnitude, peak, input_peak);
 }
 */
 import "C"
