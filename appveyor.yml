@@ -4,8 +4,8 @@ environment:
   global:
     GOPATH: c:\gopath
     GOVERSION: 1.10.2
-    OBSVERSION: 21.1
-    OBSLONGVERSION: 21.1.0
+    OBSVERSION: 21.1.2
+    OBSLONGVERSION: 21.1.2
     MSYSTEM: mingw64
     MSYS2_ARCH: x86_64
     MSYS2_DIR: msys64
