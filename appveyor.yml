@@ -21,8 +21,8 @@ install:
 
     go get -d -v ./...
 
-    appveyor DownloadFile https://github.com/obsproject/obs-studio/releases/download/%OBSLONGVERSION%/OBS-Studio-%OBSVERSION%-Full-Installer.exe
-    OBS-Studio-%OBSVERSION%-Full-Installer.exe /S
+    appveyor DownloadFile https://github.com/obsproject/obs-studio/releases/download/%OBSLONGVERSION%/OBS-Studio-%OBSVERSION%-Full-Installer-x64.exe
+    OBS-Studio-%OBSVERSION%-Full-Installer-x64.exe /S
     copy "c:\program files (x86)\obs-studio\bin\64bit\obs.dll" "c:\gopath\src\github.com\lukegb\obs_studio_exporter"
 
     SET "PATH=C:\%MSYS2_DIR%\%MSYSTEM%\bin;C:\%MSYS2_DIR%\usr\bin;%PATH%"
