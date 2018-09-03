@@ -3,9 +3,9 @@ clone_folder: c:\gopath\src\github.com\lukegb\obs_studio_exporter
 environment:
   global:
     GOPATH: c:\gopath
-    GOVERSION: 1.10.2
-    OBSVERSION: 21.1.2
-    OBSLONGVERSION: 21.1.2
+    GOVERSION: 1.11
+    OBSVERSION: 22.0.2
+    OBSLONGVERSION: 22.0.2
     MSYSTEM: mingw64
     MSYS2_ARCH: x86_64
     MSYS2_DIR: msys64
