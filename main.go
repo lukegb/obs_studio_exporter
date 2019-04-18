@@ -325,7 +325,11 @@ func obs_module_load() C.bool {
 	})
 	http.Handle("/metrics", promhttp.Handler())
 	go func() {
-		log.Fatal(http.ListenAndServe(":9407", nil))
+		for port := 9407; port < 9500; port++ {
+			log.Println("Trying port %d...", port)
+			log.Println(http.ListenAndServe(fmt.Sprintf(":%d", port), nil))
+		}
+		// Don't crash OBS because we couldn't listen on the port.
 	}()
 	return true
 }
