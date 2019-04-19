@@ -200,6 +200,9 @@ func (c *MetricCollector) Collect(ch chan<- prometheus.Metric) {
 		id := C.GoString(idC)
 		name := C.GoString(C.obs_source_get_name(o))
 
+		if seenSources[id] {
+			return C.bool(true)
+		}
 		seenSources[id] = true
 
 		src, ok := c.sources[id]
