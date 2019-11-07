@@ -53,6 +53,13 @@ var (
 const (
 	// number chosen by fair dice roll
 	circBufSamples = 32
+	// Prometheus metrics namespace.
+	namespace = "obs"
+	// Prometheus metric subsystems
+	encoderSubsystem = "encoder"
+	globalSubsystem  = "global"
+	outputSubsystem  = "output"
+	sourceSubsystem  = "source"
 )
 
 type Source struct {
@@ -109,33 +116,123 @@ type MetricCollector struct {
 
 func NewMetricCollector() *MetricCollector {
 	return &MetricCollector{
-		ActiveFPS:          prometheus.NewDesc("obs_global_active_fps", "Active frames per second.", nil, prometheus.Labels{}),
-		AverageFrameTimeNS: prometheus.NewDesc("obs_global_average_frame_time_ns", "Average time to render a frame in nanoseconds.", nil, prometheus.Labels{}),
-		TotalFrames:        prometheus.NewDesc("obs_global_total_frames", "Total frames generated.", nil, prometheus.Labels{}),
-		LaggedFrames:       prometheus.NewDesc("obs_global_lagged_frames", "Skipped frames due to encoding lag.", nil, prometheus.Labels{}),
-		VideoTotalFrames:   prometheus.NewDesc("obs_global_video_total_frames", "Total video frames generated.", nil, prometheus.Labels{}),
-		VideoSkippedFrames: prometheus.NewDesc("obs_global_video_skipped_frames", "Frames missed due to rendering lab.", nil, prometheus.Labels{}),
+		ActiveFPS: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, globalSubsystem, "active_fps"),
+			"Active frames per second.",
+			nil, prometheus.Labels{},
+		),
+		AverageFrameTimeNS: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, globalSubsystem, "average_frame_time_ns"),
+			"Average time to render a frame in nanoseconds.",
+			nil, prometheus.Labels{},
+		),
+		TotalFrames: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, globalSubsystem, "total_frames"),
+			"Total frames generated.",
+			nil, prometheus.Labels{},
+		),
+		LaggedFrames: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, globalSubsystem, "lagged_frames"),
+			"Skipped frames due to encoding lag.",
+			nil, prometheus.Labels{},
+		),
+		VideoTotalFrames: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, globalSubsystem, "video_total_frames"),
+			"Total video frames generated.",
+			nil, prometheus.Labels{},
+		),
+		VideoSkippedFrames: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, globalSubsystem, "video_skipped_frames"),
+			"Frames missed due to rendering lab.",
+			nil, prometheus.Labels{},
+		),
 
-		InfoPerOutput:          prometheus.NewDesc("obs_output_info", "Information about this output.", []string{"output_id", "output_name", "output_display_name"}, prometheus.Labels{}),
-		OutputActivePerOutput:  prometheus.NewDesc("obs_output_active", "Whether the output is active.", []string{"output_id", "output_name"}, prometheus.Labels{}),
-		TotalBytesPerOutput:    prometheus.NewDesc("obs_output_total_bytes", "Total bytes sent to this output.", []string{"output_id", "output_name"}, prometheus.Labels{}),
-		DroppedFramesPerOutput: prometheus.NewDesc("obs_output_dropped_frames", "Frames dropped by this output.", []string{"output_id", "output_name"}, prometheus.Labels{}),
-		TotalFramesPerOutput:   prometheus.NewDesc("obs_output_total_frames", "Total frames sent from this output.", []string{"output_id", "output_name"}, prometheus.Labels{}),
-		WidthPerOutput:         prometheus.NewDesc("obs_output_video_width", "Video width of this output.", []string{"output_id", "output_name"}, prometheus.Labels{}),
-		HeightPerOutput:        prometheus.NewDesc("obs_output_video_height", "Video height of this output.", []string{"output_id", "output_name"}, prometheus.Labels{}),
-		CongestionPerOutput:    prometheus.NewDesc("obs_output_congestion", "'Congestion' of this output.", []string{"output_id", "output_name"}, prometheus.Labels{}),
-		ConnectTimePerOutput:   prometheus.NewDesc("obs_output_connect_time_ms", "Time taken to connect in milliseconds for this output.", []string{"output_id", "output_name"}, prometheus.Labels{}),
-		ReconnectingPerOutput:  prometheus.NewDesc("obs_output_reconnecting", "Whether the output is reconnecting.", []string{"output_id", "output_name"}, prometheus.Labels{}),
+		InfoPerOutput: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, outputSubsystem, "info"),
+			"Information about this output.",
+			[]string{"output_id", "output_name", "output_display_name"}, prometheus.Labels{},
+		),
+		OutputActivePerOutput: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, outputSubsystem, "active"),
+			"Whether the output is active.",
+			[]string{"output_id", "output_name"}, prometheus.Labels{},
+		),
+		TotalBytesPerOutput: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, outputSubsystem, "total_bytes"),
+			"Total bytes sent to this output.", []string{"output_id", "output_name"}, prometheus.Labels{},
+		),
+		DroppedFramesPerOutput: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, outputSubsystem, "dropped_frames"),
+			"Frames dropped by this output.", []string{"output_id", "output_name"}, prometheus.Labels{},
+		),
+		TotalFramesPerOutput: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, outputSubsystem, "total_frames"),
+			"Total frames sent from this output.", []string{"output_id", "output_name"}, prometheus.Labels{},
+		),
+		WidthPerOutput: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, outputSubsystem, "video_width"),
+			"Video width of this output.", []string{"output_id", "output_name"}, prometheus.Labels{},
+		),
+		HeightPerOutput: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, outputSubsystem, "video_height"),
+			"Video height of this output.", []string{"output_id", "output_name"}, prometheus.Labels{},
+		),
+		CongestionPerOutput: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, outputSubsystem, "congestion"),
+			"'Congestion' of this output.",
+			[]string{"output_id", "output_name"}, prometheus.Labels{},
+		),
+		ConnectTimePerOutput: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, outputSubsystem, "connect_time_ms"),
+			"Time taken to connect in milliseconds for this output.",
+			[]string{"output_id", "output_name"}, prometheus.Labels{},
+		),
+		ReconnectingPerOutput: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, outputSubsystem, "reconnecting"),
+			"Whether the output is reconnecting.",
+			[]string{"output_id", "output_name"}, prometheus.Labels{},
+		),
 
-		InfoPerEncoder:       prometheus.NewDesc("obs_encoder_info", "Information about this encoder.", []string{"encoder_id", "encoder_name", "encoder_display_name", "encoder_codec"}, prometheus.Labels{}),
-		WidthPerEncoder:      prometheus.NewDesc("obs_encoder_width", "Video width of this encoder.", []string{"encoder_id", "encoder_name"}, prometheus.Labels{}),
-		HeightPerEncoder:     prometheus.NewDesc("obs_encoder_height", "Video height of this encoder.", []string{"encoder_id", "encoder_name"}, prometheus.Labels{}),
-		SampleRatePerEncoder: prometheus.NewDesc("obs_encoder_sample_rate", "Audio sample rate of this encoder.", []string{"encoder_id", "encoder_name"}, prometheus.Labels{}),
-		ActivePerEncoder:     prometheus.NewDesc("obs_encoder_active", "Whether the encoder is active.", []string{"encoder_id", "encoder_name"}, prometheus.Labels{}),
+		InfoPerEncoder: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, encoderSubsystem, "info"),
+			"Information about this encoder.",
+			[]string{"encoder_id", "encoder_name", "encoder_display_name", "encoder_codec"}, prometheus.Labels{},
+		),
+		WidthPerEncoder: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, encoderSubsystem, "width"),
+			"Video width of this encoder.",
+			[]string{"encoder_id", "encoder_name"}, prometheus.Labels{},
+		),
+		HeightPerEncoder: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, encoderSubsystem, "height"),
+			"Video height of this encoder.",
+			[]string{"encoder_id", "encoder_name"}, prometheus.Labels{},
+		),
+		SampleRatePerEncoder: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, encoderSubsystem, "sample_rate"),
+			"Audio sample rate of this encoder.", []string{"encoder_id", "encoder_name"}, prometheus.Labels{},
+		),
+		ActivePerEncoder: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, globalSubsystem, "active"),
+			"Whether the encoder is active.",
+			[]string{"encoder_id", "encoder_name"}, prometheus.Labels{},
+		),
 
-		MagnitudePerSourceChannel: prometheus.NewDesc("obs_source_channel_magnitude", "Max source channel magnitude.", []string{"source_id", "source_name", "channel_id"}, prometheus.Labels{}),
-		PeakPerSourceChannel:      prometheus.NewDesc("obs_source_channel_peak", "Max source channel peak.", []string{"source_id", "source_name", "channel_id"}, prometheus.Labels{}),
-		InputPeakPerSourceChannel: prometheus.NewDesc("obs_source_channel_input_peak", "Max source channel input peak.", []string{"source_id", "source_name", "channel_id"}, prometheus.Labels{}),
+		MagnitudePerSourceChannel: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, sourceSubsystem, "channel_magnitude"),
+			"Max source channel magnitude.",
+			[]string{"source_id", "source_name", "channel_id"}, prometheus.Labels{},
+		),
+		PeakPerSourceChannel: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, sourceSubsystem, "channel_peak"),
+			"Max source channel peak.",
+			[]string{"source_id", "source_name", "channel_id"}, prometheus.Labels{},
+		),
+		InputPeakPerSourceChannel: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, sourceSubsystem, "input_peak"),
+			"Max source channel input peak.",
+			[]string{"source_id", "source_name", "channel_id"}, prometheus.Labels{},
+		),
 
 		sources: map[string]*Source{},
 	}
