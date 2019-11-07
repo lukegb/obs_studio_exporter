@@ -127,22 +127,22 @@ func NewMetricCollector() *MetricCollector {
 			nil, prometheus.Labels{},
 		),
 		TotalFrames: prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, globalSubsystem, "total_frames"),
+			prometheus.BuildFQName(namespace, globalSubsystem, "frames_total"),
 			"Total frames generated.",
 			nil, prometheus.Labels{},
 		),
 		LaggedFrames: prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, globalSubsystem, "lagged_frames"),
+			prometheus.BuildFQName(namespace, globalSubsystem, "lagged_frames_total"),
 			"Skipped frames due to encoding lag.",
 			nil, prometheus.Labels{},
 		),
 		VideoTotalFrames: prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, globalSubsystem, "video_total_frames"),
+			prometheus.BuildFQName(namespace, globalSubsystem, "video_frames_total"),
 			"Total video frames generated.",
 			nil, prometheus.Labels{},
 		),
 		VideoSkippedFrames: prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, globalSubsystem, "video_skipped_frames"),
+			prometheus.BuildFQName(namespace, globalSubsystem, "video_skipped_frames_total"),
 			"Frames missed due to rendering lab.",
 			nil, prometheus.Labels{},
 		),
@@ -158,15 +158,15 @@ func NewMetricCollector() *MetricCollector {
 			[]string{"output_id", "output_name"}, prometheus.Labels{},
 		),
 		TotalBytesPerOutput: prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, outputSubsystem, "total_bytes"),
+			prometheus.BuildFQName(namespace, outputSubsystem, "bytes_total"),
 			"Total bytes sent to this output.", []string{"output_id", "output_name"}, prometheus.Labels{},
 		),
 		DroppedFramesPerOutput: prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, outputSubsystem, "dropped_frames"),
+			prometheus.BuildFQName(namespace, outputSubsystem, "dropped_frames_total"),
 			"Frames dropped by this output.", []string{"output_id", "output_name"}, prometheus.Labels{},
 		),
 		TotalFramesPerOutput: prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, outputSubsystem, "total_frames"),
+			prometheus.BuildFQName(namespace, outputSubsystem, "frames"),
 			"Total frames sent from this output.", []string{"output_id", "output_name"}, prometheus.Labels{},
 		),
 		WidthPerOutput: prometheus.NewDesc(
@@ -183,8 +183,8 @@ func NewMetricCollector() *MetricCollector {
 			[]string{"output_id", "output_name"}, prometheus.Labels{},
 		),
 		ConnectTimePerOutput: prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, outputSubsystem, "connect_time_ms"),
-			"Time taken to connect in milliseconds for this output.",
+			prometheus.BuildFQName(namespace, outputSubsystem, "connect_time_seconds"),
+			"Time taken to connect in seconds for this output.",
 			[]string{"output_id", "output_name"}, prometheus.Labels{},
 		),
 		ReconnectingPerOutput: prometheus.NewDesc(
@@ -389,7 +389,7 @@ func (c *MetricCollector) Collect(ch chan<- prometheus.Metric) {
 		ch <- prometheus.MustNewConstMetric(c.WidthPerOutput, prometheus.GaugeValue, float64(C.obs_output_get_width(o)), id, name)
 		ch <- prometheus.MustNewConstMetric(c.HeightPerOutput, prometheus.GaugeValue, float64(C.obs_output_get_height(o)), id, name)
 		ch <- prometheus.MustNewConstMetric(c.CongestionPerOutput, prometheus.GaugeValue, float64(C.obs_output_get_congestion(o)), id, name)
-		ch <- prometheus.MustNewConstMetric(c.ConnectTimePerOutput, prometheus.GaugeValue, float64(C.obs_output_get_connect_time_ms(o)), id, name)
+		ch <- prometheus.MustNewConstMetric(c.ConnectTimePerOutput, prometheus.GaugeValue, float64(C.obs_output_get_connect_time_ms(o))/1000.0, id, name)
 		ch <- prometheus.MustNewConstMetric(c.ReconnectingPerOutput, prometheus.GaugeValue, obsBoolMetric(C.obs_output_reconnecting(o)), id, name)
 
 		return C.bool(true)
