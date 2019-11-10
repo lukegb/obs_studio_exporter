@@ -49,6 +49,15 @@ At present, the following metric groups are exported:
 This project is a little bit finnicky to compile and install.
 
 1. `git submodule init && git submodule update`
-2. Copy `obs.dll` from your OBS 64-bit install (from obs-studio/bin/64bit) to the root of the exporter checkout directory.
-3. `go build -buildmode=c-shared -o obs-studio-exporter.dll`
-4. Install by copying `obs-studio-exporter.dll` to obs-studio/obs-plugins/64bit.
+
+### Linux
+
+1. Copy `libobs.so` from your OBS 64-bit install (Usually `/usr/lib/libobs.so`) to the root of the exporter checkout directory.
+2. `go build -buildmode=c-shared -o obs-studio-exporter.so`
+3. Install by copying `obs-studio-exporter.so` to `/usr/lib/obs-plugins/`.
+
+### Windows
+
+1. Copy `obs.dll` from your OBS 64-bit install (from obs-studio/bin/64bit) to the root of the exporter checkout directory.
+2. `go build -buildmode=c-shared -o obs-studio-exporter.dll`
+3. Install by copying `obs-studio-exporter.dll` to obs-studio/obs-plugins/64bit.
