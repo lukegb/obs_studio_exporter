@@ -401,12 +401,21 @@ func (c *MetricCollector) Collect(ch chan<- prometheus.Metric) {
 		id := C.GoString(idC)
 		name := C.GoString(C.obs_encoder_get_name(o))
 		displayName := C.GoString(C.obs_encoder_get_display_name(idC))
+		isAudioEncoder := C.obs_encoder_get_type(o) == C.OBS_ENCODER_AUDIO
 
 		ch <- prometheus.MustNewConstMetric(c.InfoPerEncoder, prometheus.GaugeValue, 1, id, name, displayName, C.GoString(C.obs_encoder_get_codec(o)))
-		ch <- prometheus.MustNewConstMetric(c.WidthPerEncoder, prometheus.GaugeValue, float64(C.obs_encoder_get_width(o)), id, name)
-		ch <- prometheus.MustNewConstMetric(c.HeightPerEncoder, prometheus.GaugeValue, float64(C.obs_encoder_get_height(o)), id, name)
-		ch <- prometheus.MustNewConstMetric(c.SampleRatePerEncoder, prometheus.GaugeValue, float64(C.obs_encoder_get_sample_rate(o)), id, name)
 		ch <- prometheus.MustNewConstMetric(c.ActivePerEncoder, prometheus.GaugeValue, obsBoolMetric(C.obs_encoder_active(o)), id, name)
+
+		if isAudioEncoder {
+			ch <- prometheus.MustNewConstMetric(c.WidthPerEncoder, prometheus.GaugeValue, 0, id, name)
+			ch <- prometheus.MustNewConstMetric(c.HeightPerEncoder, prometheus.GaugeValue, 0, id, name)
+			ch <- prometheus.MustNewConstMetric(c.SampleRatePerEncoder, prometheus.GaugeValue, float64(C.obs_encoder_get_sample_rate(o)), id, name)
+		} else {
+			ch <- prometheus.MustNewConstMetric(c.WidthPerEncoder, prometheus.GaugeValue, float64(C.obs_encoder_get_width(o)), id, name)
+			ch <- prometheus.MustNewConstMetric(c.HeightPerEncoder, prometheus.GaugeValue, float64(C.obs_encoder_get_height(o)), id, name)
+			ch <- prometheus.MustNewConstMetric(c.SampleRatePerEncoder, prometheus.GaugeValue, 0, id, name)
+		}
+
 		return C.bool(true)
 	}
 	C.obs_enum_encoders(C.mc_enum_encoders_proc(C.mc_enum_encoders_cb), nil)
