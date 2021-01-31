@@ -17,7 +17,9 @@ package main
 
 /*
 #cgo CFLAGS: -Ithird_party/obs-studio/libobs
-#cgo LDFLAGS: -L. -lobs
+#cgo darwin LDFLAGS: -L. -lobs.0
+#cgo linux LDFLAGS: -L. -lobs
+#cgo windows LDFLAGS: -L. -lobs
 #include <obs-module.h>
 #include <obs.h>
 
