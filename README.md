@@ -1,12 +1,18 @@
 # obs-studio-exporter
 
-[![Build status](https://ci.appveyor.com/api/projects/status/9q1o274gphwcp4v6?svg=true)](https://ci.appveyor.com/project/lukegb/obs-studio-exporter)
+[![Build](https://github.com/lukegb/obs_studio_exporter/actions/workflows/build.yml/badge.svg)](https://github.com/lukegb/obs_studio_exporter/actions/workflows/build.yml)
 
 *This is not an official Google product.*
 
 Exports metrics from [OBS Studio](https://obsproject.com) in a [Prometheus](https://prometheus.io)-compatible format.
 
 Listens on port 9407 (currently not configurable).
+
+## Prebuilt Versions
+
+* [https://nightly.link/lukegb/obs_studio_exporter/workflows/build/canon/obs-studio-exporter-macos.zip](macOS)
+* [https://nightly.link/lukegb/obs_studio_exporter/workflows/build/canon/obs-studio-exporter-windows.zip](Windows)
+* [https://nightly.link/lukegb/obs_studio_exporter/workflows/build/canon/obs-studio-exporter-ubuntu.zip](Linux (built on Ubuntu))
 
 ## Metrics
 
