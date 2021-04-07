@@ -10,9 +10,9 @@ Listens on port 9407 (currently not configurable).
 
 ## Prebuilt Versions
 
-* [https://nightly.link/lukegb/obs_studio_exporter/workflows/build/canon/obs-studio-exporter-macos.zip](macOS)
-* [https://nightly.link/lukegb/obs_studio_exporter/workflows/build/canon/obs-studio-exporter-windows.zip](Windows)
-* [https://nightly.link/lukegb/obs_studio_exporter/workflows/build/canon/obs-studio-exporter-ubuntu.zip](Linux (built on Ubuntu))
+* [macOS](https://nightly.link/lukegb/obs_studio_exporter/workflows/build/canon/obs-studio-exporter-macos.zip)
+* [Windows](https://nightly.link/lukegb/obs_studio_exporter/workflows/build/canon/obs-studio-exporter-windows.zip)
+* [Linux (built on Ubuntu)](https://nightly.link/lukegb/obs_studio_exporter/workflows/build/canon/obs-studio-exporter-ubuntu.zip)
 
 ## Metrics
 
