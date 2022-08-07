@@ -45,7 +45,7 @@ jobs:
       - name: Install OBS
         shell: pwsh
         run: |
-          Invoke-WebRequest -Uri "https://cdn-fastly.obsproject.com/downloads/OBS-Studio-27.0.1-Full-Installer-x64.exe" -OutFile obs-studio-installer.exe
+          Invoke-WebRequest -Uri "https://cdn-fastly.obsproject.com/downloads/OBS-Studio-27.2.4-Full-Installer-x64.exe" -OutFile obs-studio-installer.exe
           .\obs-studio-installer.exe /S | Out-Null
       - name: Build
         shell: pwsh
@@ -72,7 +72,7 @@ jobs:
           go-version: '^1.16'
       - name: Install OBS
         run: |
-          curl -L -o obs-mac.dmg "https://cdn-fastly.obsproject.com/downloads/obs-mac-27.0.1.dmg"
+          curl -L -o obs-mac.dmg "https://cdn-fastly.obsproject.com/downloads/obs-mac-27.2.4.dmg"
           hdiutil attach ./obs-mac.dmg
       - name: Build
         run: |
