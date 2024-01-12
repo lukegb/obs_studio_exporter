@@ -323,7 +323,6 @@ func (c *MetricCollector) Collect(ch chan<- prometheus.Metric) {
 				C.obs_volmeter_destroy(vm)
 				return C.bool(true)
 			}
-			C.obs_volmeter_set_update_interval(vm, 1000)
 			C.obs_volmeter_add_callback(vm, C.obs_volmeter_updated_t(C.mc_volmeter_updated), unsafe.Pointer(src.CID))
 
 			//src.Channels = int(C.obs_volmeter_get_nr_channels(vm))
