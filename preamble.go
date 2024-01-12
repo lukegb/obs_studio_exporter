@@ -16,8 +16,25 @@ package main
 
 // #cgo CFLAGS: -Iobs-studio/libobs
 // #include <obs-module.h>
-//
-// OBS_DECLARE_MODULE()
 import "C"
+
+var (
+	obsModulePointer *C.obs_module_t
+)
+
+//export obs_module_set_pointer
+func obs_module_set_pointer(module *C.obs_module_t) {
+	obsModulePointer = module
+}
+
+//export obs_current_module
+func obs_current_module() *C.obs_module_t {
+	return obsModulePointer
+}
+
+//export obs_module_ver
+func obs_module_ver() C.uint32_t {
+	return C.uint32_t(C.LIBOBS_API_VER)
+}
 
 func main() {}
