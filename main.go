@@ -36,7 +36,7 @@ import "C"
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"math"
 	"net/http"
 	"sync"
@@ -314,12 +314,12 @@ func (c *MetricCollector) Collect(ch chan<- prometheus.Metric) {
 			negInf := math.Inf(-1)
 			vm := C.obs_volmeter_create(C.OBS_FADER_CUBIC)
 			if vm == nil {
-				log.Printf("failed to create volmeter for source %v/%v", id, name)
+				slog.Warn("failed to create volmeter", "source_id", id, "source_name", name)
 				return C.bool(true)
 			}
 			src.VolMeter = vm
 			if ok := bool(C.obs_volmeter_attach_source(vm, o)); !ok {
-				log.Printf("failed to attach source %v/%v to volmeter", id, name)
+				slog.Warn("failed to attach source to volmeter", "source_id", id, "source_name", name)
 				C.obs_volmeter_destroy(vm)
 				return C.bool(true)
 			}
@@ -429,6 +429,7 @@ func registerMetrics() {
 
 //export obs_module_load
 func obs_module_load() C.bool {
+	slog.SetDefault(slog.New(&OBSHandler{}))
 	registerMetrics()
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "You have reached obs-studio-exporter. Please leave a message after the beep.")
@@ -436,8 +437,9 @@ func obs_module_load() C.bool {
 	http.Handle("/metrics", promhttp.Handler())
 	go func() {
 		for port := 9407; port < 9500; port++ {
-			log.Printf("Trying port %d...", port)
-			log.Println(http.ListenAndServe(fmt.Sprintf(":%d", port), nil))
+			slog.Info("Trying to listen for HTTP...", "port", port)
+			err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
+			slog.Error("http.ListenAndServe failed", "port", port, "err", err)
 		}
 		// Don't crash OBS because we couldn't listen on the port.
 	}()
@@ -474,7 +476,7 @@ func mc_volmeter_updated_go(f unsafe.Pointer, magnitude, peak, inputPeak unsafe.
 	activeMetricCollector.mu.Lock()
 	src, ok := activeMetricCollector.sources[id]
 	if !ok {
-		log.Printf("unknown source %v", id)
+		slog.Debug("unknown source in mc_volmeter_updated_go", "source_id", id)
 		activeMetricCollector.mu.Unlock()
 		return
 	}
