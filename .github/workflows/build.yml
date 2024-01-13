@@ -4,17 +4,17 @@ on: [push, pull_request]
 
 jobs:
   build-ubuntu:
-    name: Ubuntu 20.04
-    runs-on: ubuntu-20.04
+    name: Ubuntu 22.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           submodules: true
       - name: Install Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v5
         with:
-          go-version: '^1.16'
+          go-version: '^1.21'
       - name: Install OBS
         run: |
           sudo add-apt-repository ppa:obsproject/obs-studio
@@ -22,10 +22,10 @@ jobs:
           sudo apt install -y obs-studio
       - name: Build
         run: |
-          cp /usr/lib/libobs.so ./
+          cp /lib/x86_64-linux-gnu/libobs.so.0 ./libobs.so
           go build -buildmode=c-shared -o obs-studio-exporter.so
       - name: Archive artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: obs-studio-exporter-ubuntu
           path: obs-studio-exporter.so
@@ -35,17 +35,17 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           submodules: true
       - name: Install Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v5
         with:
-          go-version: '^1.16'
+          go-version: '^1.21'
       - name: Install OBS
         shell: pwsh
         run: |
-          Invoke-WebRequest -Uri "https://cdn-fastly.obsproject.com/downloads/OBS-Studio-27.0.1-Full-Installer-x64.exe" -OutFile obs-studio-installer.exe
+          Invoke-WebRequest -Uri "https://cdn-fastly.obsproject.com/downloads/OBS-Studio-30.0.2-Full-Installer-x64.exe" -OutFile obs-studio-installer.exe
           .\obs-studio-installer.exe /S | Out-Null
       - name: Build
         shell: pwsh
@@ -53,34 +53,60 @@ jobs:
           Copy-Item "C:\\Program Files\\obs-studio\\bin\\64bit\\obs.dll" -Destination "."
           go build -buildmode=c-shared -o obs-studio-exporter.dll
       - name: Archive artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: obs-studio-exporter-windows
           path: obs-studio-exporter.dll
 
-  build-macos:
-    name: macOS
+  build-macos-intel:
+    name: macOS Intel
     runs-on: macos-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           submodules: true
       - name: Install Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v5
         with:
-          go-version: '^1.16'
+          go-version: '^1.21'
       - name: Install OBS
         run: |
-          curl -L -o obs-mac.dmg "https://cdn-fastly.obsproject.com/downloads/obs-mac-27.0.1.dmg"
+          curl -L -o obs-mac.dmg "https://cdn-fastly.obsproject.com/downloads/OBS-Studio-30.0.2-macOS-Intel.dmg"
           hdiutil attach ./obs-mac.dmg
       - name: Build
         run: |
-          cp /Volumes/OBS*/OBS.app/Contents/Frameworks/libobs.0.dylib ./libobs.0.dylib
-          go build -buildmode=c-shared -o obs-studio-exporter.so
+          cp -R /Volumes/OBS*/OBS.app/Contents/Frameworks/libobs.framework ./libobs.framework
+          go build -buildmode=c-shared -o obs-studio-exporter.so -ldflags="-extldflags=-F$(readlink -f .)"
       - name: Archive artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
-          name: obs-studio-exporter-macos
+          name: obs-studio-exporter-macos-intel
+          path: obs-studio-exporter.so
+
+  build-macos-arm:
+    name: macOS ARM
+    runs-on: macos-latest-xlarge
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '^1.21'
+      - name: Install OBS
+        run: |
+          curl -L -o obs-mac.dmg "https://cdn-fastly.obsproject.com/downloads/OBS-Studio-30.0.2-macOS-Apple.dmg"
+          hdiutil attach ./obs-mac.dmg
+      - name: Build
+        run: |
+          cp -R /Volumes/OBS*/OBS.app/Contents/Frameworks/libobs.framework ./libobs.framework
+          go build -buildmode=c-shared -o obs-studio-exporter.so -ldflags="-extldflags=-F$(readlink -f .)"
+      - name: Archive artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: obs-studio-exporter-macos-arm
           path: obs-studio-exporter.so
 
