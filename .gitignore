@@ -3,3 +3,4 @@
 *.h
 *.so
 *.dylib
+/output
