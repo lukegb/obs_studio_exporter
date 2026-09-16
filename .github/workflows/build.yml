@@ -7,7 +7,7 @@ on:
 
 env:
   GO_VERSION: "1.21"
-  OBS_VERSION: "32.2.1"
+  OBS_VERSION: "32.2.2"
 
 permissions:
   contents: write
@@ -29,7 +29,7 @@ jobs:
         run: |
           sudo add-apt-repository ppa:obsproject/obs-studio
           sudo apt update
-          sudo apt install -y obs-studio
+          sudo apt install -y libsimde-dev obs-studio
       - name: Build
         run: |
           cp /lib/x86_64-linux-gnu/libobs.so.0 ./libobs.so

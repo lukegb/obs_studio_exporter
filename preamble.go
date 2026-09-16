@@ -14,7 +14,7 @@
 
 package main
 
-// #cgo CFLAGS: -Ithird_party/obs-studio/libobs
+// #cgo CFLAGS: -I. -Ithird_party/obs-studio/libobs
 // #include <obs-module.h>
 import "C"
 
