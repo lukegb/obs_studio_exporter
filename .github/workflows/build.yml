@@ -84,11 +84,13 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
       - name: Install OBS
         run: |
+          brew install simde
           curl -L -o obs-macos-arm64.dmg "https://cdn-fastly.obsproject.com/downloads/OBS-Studio-${{ env.OBS_VERSION }}-macOS-Apple.dmg"
           hdiutil attach "./obs-macos-arm64.dmg"
       - name: Build
         run: |
           cp -R /Volumes/OBS*/OBS.app/Contents/Frameworks/libobs.framework ./libobs.framework
+          export CGO_CFLAGS="-I$(brew --prefix simde)/include"
           go build -buildmode=c-shared -o obs-studio-exporter.so -ldflags="-extldflags=-F$PWD"
       - name: Archive artifact
         uses: actions/upload-artifact@v4
