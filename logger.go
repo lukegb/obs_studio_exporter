@@ -15,76 +15,28 @@
 package main
 
 import (
-	"context"
 	"fmt"
-	"log/slog"
+	"log"
 	"strings"
-	"unsafe"
 )
 
-/*
-#cgo CFLAGS: -Ithird_party/obs-studio/libobs
-#include <obs-module.h>
-#include <obs.h>
+func logDebug(msg string, kv ...any) { logWithLevel("DEBUG", msg, kv...) }
+func logInfo(msg string, kv ...any)  { logWithLevel("INFO", msg, kv...) }
+func logWarn(msg string, kv ...any)  { logWithLevel("WARN", msg, kv...) }
+func logError(msg string, kv ...any) { logWithLevel("ERROR", msg, kv...) }
 
-void blogit(int log_level, const char* prefix, const char* message) {
-	blog(log_level, "[obs-studio-exporter] %s%s", prefix, message);
-}
-*/
-import "C"
-
-type OBSHandler struct {
-	attrs  []string
-	groups []string
-}
-
-func (h *OBSHandler) Enabled(ctx context.Context, l slog.Level) bool {
-	return true /* who can say */
-}
-
-func (h *OBSHandler) Handle(ctx context.Context, r slog.Record) error {
-	var obsLevel C.int
-	switch {
-	case r.Level < slog.LevelInfo:
-		obsLevel = C.LOG_DEBUG
-	case r.Level < slog.LevelWarn:
-		obsLevel = C.LOG_INFO
-	case r.Level < slog.LevelError:
-		obsLevel = C.LOG_WARNING
-	default:
-		obsLevel = C.LOG_ERROR
+func logWithLevel(level, msg string, kv ...any) {
+	if len(kv)%2 != 0 {
+		kv = append(kv, "<missing>")
 	}
-	var prefix string
-	if len(h.attrs) > 0 {
-		prefix = strings.Join(h.attrs, " ")
+	var b strings.Builder
+	b.WriteString("[obs-studio-exporter] ")
+	b.WriteString(level)
+	b.WriteString(": ")
+	b.WriteString(msg)
+	for i := 0; i < len(kv); i += 2 {
+		b.WriteString(" ")
+		b.WriteString(fmt.Sprintf("%v=%v", kv[i], kv[i+1]))
 	}
-	prefixStr := C.CString(prefix)
-	messageStr := C.CString(r.Message)
-	C.blogit(obsLevel, prefixStr, messageStr)
-	C.free(unsafe.Pointer(prefixStr))
-	C.free(unsafe.Pointer(messageStr))
-	return nil
-}
-
-func (h *OBSHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	newAttrs := make([]string, len(h.attrs), len(h.attrs)+len(attrs))
-	copy(newAttrs, h.attrs)
-	var groupPrefix string
-	if len(h.groups) > 0 {
-		groupPrefix = strings.Join(h.groups, ".") + "."
-	}
-	for _, attr := range attrs {
-		newAttrs = append(newAttrs, fmt.Sprintf("%s%s=%s", groupPrefix, attr.Key, attr.Value.Resolve()))
-	}
-	return &OBSHandler{
-		attrs:  newAttrs,
-		groups: h.groups,
-	}
-}
-
-func (h *OBSHandler) WithGroup(name string) slog.Handler {
-	return &OBSHandler{
-		attrs:  h.attrs,
-		groups: append(h.groups, name),
-	}
+	log.Print(b.String())
 }

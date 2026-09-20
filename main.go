@@ -16,9 +16,9 @@
 package main
 
 /*
-#cgo CFLAGS: -Ithird_party/obs-studio/libobs
+#cgo CFLAGS: -I. -Ithird_party/obs-studio/libobs
 #cgo darwin LDFLAGS: -F. -framework libobs
-#cgo linux LDFLAGS: -L. -lobs
+#cgo linux LDFLAGS: -L. -L/usr/lib/x86_64-linux-gnu -l:libobs.so.0
 #cgo windows LDFLAGS: -L. -lobs
 #include <obs-module.h>
 #include <obs.h>
@@ -36,7 +36,6 @@ import "C"
 
 import (
 	"fmt"
-	"log/slog"
 	"math"
 	"net/http"
 	"sync"
@@ -314,12 +313,12 @@ func (c *MetricCollector) Collect(ch chan<- prometheus.Metric) {
 			negInf := math.Inf(-1)
 			vm := C.obs_volmeter_create(C.OBS_FADER_CUBIC)
 			if vm == nil {
-				slog.Warn("failed to create volmeter", "source_id", id, "source_name", name)
+				logWarn("failed to create volmeter", "source_id", id, "source_name", name)
 				return C.bool(true)
 			}
 			src.VolMeter = vm
 			if ok := bool(C.obs_volmeter_attach_source(vm, o)); !ok {
-				slog.Warn("failed to attach source to volmeter", "source_id", id, "source_name", name)
+				logWarn("failed to attach source to volmeter", "source_id", id, "source_name", name)
 				C.obs_volmeter_destroy(vm)
 				return C.bool(true)
 			}
@@ -429,7 +428,6 @@ func registerMetrics() {
 
 //export obs_module_load
 func obs_module_load() C.bool {
-	slog.SetDefault(slog.New(&OBSHandler{}))
 	registerMetrics()
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "You have reached obs-studio-exporter. Please leave a message after the beep.")
@@ -437,9 +435,9 @@ func obs_module_load() C.bool {
 	http.Handle("/metrics", promhttp.Handler())
 	go func() {
 		for port := 9407; port < 9500; port++ {
-			slog.Info("Trying to listen for HTTP...", "port", port)
+			logInfo("Trying to listen for HTTP...", "port", port)
 			err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
-			slog.Error("http.ListenAndServe failed", "port", port, "err", err)
+			logError("http.ListenAndServe failed", "port", port, "err", err)
 		}
 		// Don't crash OBS because we couldn't listen on the port.
 	}()
@@ -476,7 +474,7 @@ func mc_volmeter_updated_go(f unsafe.Pointer, magnitude, peak, inputPeak unsafe.
 	activeMetricCollector.mu.Lock()
 	src, ok := activeMetricCollector.sources[id]
 	if !ok {
-		slog.Debug("unknown source in mc_volmeter_updated_go", "source_id", id)
+		logDebug("unknown source in mc_volmeter_updated_go", "source_id", id)
 		activeMetricCollector.mu.Unlock()
 		return
 	}

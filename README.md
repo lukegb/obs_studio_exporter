@@ -1,18 +1,15 @@
 # obs-studio-exporter
 
-[![Build](https://github.com/lukegb/obs_studio_exporter/actions/workflows/build.yml/badge.svg)](https://github.com/lukegb/obs_studio_exporter/actions/workflows/build.yml)
+[![Build](https://github.com/lukegb/obs-studio-exporter/actions/workflows/build.yml/badge.svg)](https://github.com/lukegb/obs-studio-exporter/actions/workflows/build.yml)
 
-*This is not an official Google product.*
+Exports OBS Studio metrics in a Prometheus-compatible format.
 
-Exports metrics from [OBS Studio](https://obsproject.com) in a [Prometheus](https://prometheus.io)-compatible format.
-
-Listens on port 9407 (currently not configurable).
+This repository builds a loadable OBS module that exposes an HTTP endpoint on port `9407` and serves metrics from the running OBS instance.
 
 ## Prebuilt Versions
 
-* [macOS](https://nightly.link/lukegb/obs_studio_exporter/workflows/build/canon/obs-studio-exporter-macos.zip)
-* [Windows](https://nightly.link/lukegb/obs_studio_exporter/workflows/build/canon/obs-studio-exporter-windows.zip)
-* [Linux (built on Ubuntu)](https://nightly.link/lukegb/obs_studio_exporter/workflows/build/canon/obs-studio-exporter-ubuntu.zip)
+* [Releases](../../releases)
+* [Latest workflow run](../../actions/workflows/build.yml)
 
 ## Metrics
 
@@ -54,22 +51,57 @@ At present, the following metric groups are exported:
 
 This project is a little bit finnicky to compile and install.
 
-1. `git submodule init && git submodule update`
+1. `git submodule update --init --recursive`
 
 ### Linux
 
-1. Copy `libobs.so` from your OBS 64-bit install (Usually `/usr/lib/libobs.so`) to the root of the exporter checkout directory.
-2. `go build -buildmode=c-shared -o obs-studio-exporter.so`
-3. Install by copying `obs-studio-exporter.so` to `/usr/lib/obs-plugins/`.
+1. Copy `libobs.so` from your OBS 64-bit install to the root of the exporter checkout directory.
+2. Build:
+
+```bash
+go build -buildmode=c-shared -o obs-studio-exporter.so
+```
 
 ### Windows
 
-1. Copy `obs.dll` from your OBS 64-bit install (from obs-studio/bin/64bit) to the root of the exporter checkout directory.
-2. `go build -buildmode=c-shared -o obs-studio-exporter.dll`
-3. Install by copying `obs-studio-exporter.dll` to obs-studio/obs-plugins/64bit.
+1. Copy `obs.dll` from `obs-studio/bin/64bit` to the root of the exporter checkout directory.
+2. Build:
+
+```bash
+go build -buildmode=c-shared -o obs-studio-exporter.dll
+```
 
 ### macOS
 
-1. Copy `libobs.so` from your OBS 64-bit install (Usually `/Applications/OBS.app/Contents/Frameworks/libobs.0.dylib`) to the root of the exporter checkout directory.
-2. `go build -buildmode=c-shared -o obs-studio-exporter.so`
-3. Install by copying `obs-studio-exporter.so` to `/Applications/OBS.app/Contents/PlugIns/`.
+1. Copy `libobs.framework` from your OBS installation to the root of the exporter checkout directory.
+2. Build:
+
+```bash
+go build -buildmode=c-shared -o obs-studio-exporter.so
+```
+
+### Installing the Plugin
+
+After you build the shared library, copy it into the OBS plugin directory for your platform.
+
+### Linux install
+
+1. Copy `obs-studio-exporter.so` to `/usr/lib/obs-plugins/`.
+2. Restart OBS Studio.
+
+### Windows install
+
+1. Copy `obs-studio-exporter.dll` to `obs-studio\obs-plugins\64bit\`.
+2. Restart OBS Studio.
+
+### macOS install
+
+1. Copy `obs-studio-exporter.so` to `/Applications/OBS.app/Contents/PlugIns/`.
+2. Restart OBS Studio.
+
+## Notes
+
+- Linux builds in this repository currently link against `libobs.so.0`.
+- The workflow publishes prerelease GitHub Releases from `main`.
+- If you only need the latest build output, check the latest release assets instead of the workflow artifacts.
+- Mandatory disclaimer: *This is not an official Google product.*

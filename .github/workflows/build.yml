@@ -1,25 +1,35 @@
 name: Build
 
-on: [push, pull_request]
+on: 
+  - push 
+  - pull_request
+  - workflow_dispatch
+
+env:
+  GO_VERSION: "1.21"
+  OBS_VERSION: "32.2.2"
+
+permissions:
+  contents: write
 
 jobs:
-  build-ubuntu:
-    name: Ubuntu 22.04
+  build-linux:
+    name: Linux
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          submodules: true
+          submodules: recursive
       - name: Install Go
         uses: actions/setup-go@v5
         with:
-          go-version: '^1.21'
+          go-version: ${{ env.GO_VERSION }}
       - name: Install OBS
         run: |
           sudo add-apt-repository ppa:obsproject/obs-studio
           sudo apt update
-          sudo apt install -y obs-studio
+          sudo apt install -y libsimde-dev obs-studio
       - name: Build
         run: |
           cp /lib/x86_64-linux-gnu/libobs.so.0 ./libobs.so
@@ -27,7 +37,7 @@ jobs:
       - name: Archive artifact
         uses: actions/upload-artifact@v4
         with:
-          name: obs-studio-exporter-ubuntu
+          name: obs-studio-exporter-linux
           path: obs-studio-exporter.so
 
   build-windows:
@@ -37,20 +47,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          submodules: true
+          submodules: recursive
       - name: Install Go
         uses: actions/setup-go@v5
         with:
-          go-version: '^1.21'
+          go-version: ${{ env.GO_VERSION }}
       - name: Install OBS
         shell: pwsh
         run: |
-          Invoke-WebRequest -Uri "https://cdn-fastly.obsproject.com/downloads/OBS-Studio-30.0.2-Full-Installer-x64.exe" -OutFile obs-studio-installer.exe
+          Invoke-WebRequest -Uri "https://cdn-fastly.obsproject.com/downloads/OBS-Studio-${{ env.OBS_VERSION }}-Windows-x64-Installer.exe" -OutFile obs-studio-installer.exe
           .\obs-studio-installer.exe /S | Out-Null
       - name: Build
         shell: pwsh
         run: |
-          Copy-Item "C:\\Program Files\\obs-studio\\bin\\64bit\\obs.dll" -Destination "."
+          Copy-Item "C:\Program Files\obs-studio\bin\64bit\obs.dll" -Destination "."
           go build -buildmode=c-shared -o obs-studio-exporter.dll
       - name: Archive artifact
         uses: actions/upload-artifact@v4
@@ -58,55 +68,71 @@ jobs:
           name: obs-studio-exporter-windows
           path: obs-studio-exporter.dll
 
-  build-macos-intel:
-    name: macOS Intel
-    runs-on: macos-latest
+  build-macos:
+    name: macOS ARM64
+    runs-on: macos-14
+    strategy:
+      fail-fast: false
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          submodules: true
+          submodules: recursive
       - name: Install Go
         uses: actions/setup-go@v5
         with:
-          go-version: '^1.21'
+          go-version: ${{ env.GO_VERSION }}
       - name: Install OBS
         run: |
-          curl -L -o obs-mac.dmg "https://cdn-fastly.obsproject.com/downloads/OBS-Studio-30.0.2-macOS-Intel.dmg"
-          hdiutil attach ./obs-mac.dmg
+          brew install simde
+          curl -L -o obs-macos-arm64.dmg "https://cdn-fastly.obsproject.com/downloads/OBS-Studio-${{ env.OBS_VERSION }}-macOS-Apple.dmg"
+          hdiutil attach "./obs-macos-arm64.dmg"
       - name: Build
         run: |
           cp -R /Volumes/OBS*/OBS.app/Contents/Frameworks/libobs.framework ./libobs.framework
-          go build -buildmode=c-shared -o obs-studio-exporter.so -ldflags="-extldflags=-F$(readlink -f .)"
+          export CGO_CFLAGS="-I$(brew --prefix simde)/include"
+          go build -buildmode=c-shared -o obs-studio-exporter.so -ldflags="-extldflags=-F$PWD"
       - name: Archive artifact
         uses: actions/upload-artifact@v4
         with:
-          name: obs-studio-exporter-macos-intel
+          name: obs-studio-exporter-macos-arm64
           path: obs-studio-exporter.so
 
-  build-macos-arm:
-    name: macOS ARM
-    runs-on: macos-latest-xlarge
+  release:
+    name: Release
+    runs-on: ubuntu-22.04
+    needs:
+      - build-linux
+      - build-windows
+      - build-macos
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v4
         with:
-          submodules: true
-      - name: Install Go
-        uses: actions/setup-go@v5
+          name: obs-studio-exporter-linux
+          path: dist/linux
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
         with:
-          go-version: '^1.21'
-      - name: Install OBS
+          name: obs-studio-exporter-windows
+          path: dist/windows
+      - name: Download macOS ARM artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: obs-studio-exporter-macos-arm64
+          path: dist/macos-arm64
+      - name: Package artifacts
         run: |
-          curl -L -o obs-mac.dmg "https://cdn-fastly.obsproject.com/downloads/OBS-Studio-30.0.2-macOS-Apple.dmg"
-          hdiutil attach ./obs-mac.dmg
-      - name: Build
-        run: |
-          cp -R /Volumes/OBS*/OBS.app/Contents/Frameworks/libobs.framework ./libobs.framework
-          go build -buildmode=c-shared -o obs-studio-exporter.so -ldflags="-extldflags=-F$(readlink -f .)"
-      - name: Archive artifact
-        uses: actions/upload-artifact@v4
+          mkdir -p release
+          cp dist/linux/obs-studio-exporter.so release/obs-studio-exporter-linux.so
+          cp dist/windows/obs-studio-exporter.dll release/obs-studio-exporter-windows.dll
+          cp dist/macos-arm64/obs-studio-exporter.so release/obs-studio-exporter-macos-arm64.so
+      - name: Publish Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: obs-studio-exporter-macos-arm
-          path: obs-studio-exporter.so
-
+          tag_name: nightly-${{ github.run_number }}
+          name: Nightly ${{ github.run_number }}
+          prerelease: true
+          generate_release_notes: true
+          files: release/*
