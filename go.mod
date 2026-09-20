@@ -1,6 +1,7 @@
 module github.com/lukegb/obs_studio_exporter
 
-go 1.19
+go 1.21
+toolchain go1.27.1
 
 require github.com/prometheus/client_golang v1.18.0
 
