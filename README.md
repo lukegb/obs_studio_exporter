@@ -1,6 +1,6 @@
 # obs-studio-exporter
 
-[![Build](https://github.com/lukegb/obs-studio-exporter/actions/workflows/build.yml/badge.svg)](https://github.com/lukegb/obs-studio-exporter/actions/workflows/build.yml)
+[![Build](https://github.com/lukegb/obs_studio_exporter/actions/workflows/build.yml/badge.svg)](https://github.com/lukegb/obs_studio_exporter/actions/workflows/build.yml)
 
 Exports OBS Studio metrics in a Prometheus-compatible format.
 
