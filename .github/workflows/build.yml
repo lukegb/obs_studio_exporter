@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - canon
+    tags:
+      - v*
   pull_request:
   workflow_dispatch:
 
