@@ -3,6 +3,7 @@ name: Build
 on: 
   push:
     branches:
+      - main
       - canon
     tags:
       - v*
@@ -10,14 +11,14 @@ on:
   workflow_dispatch:
 
 env:
-  OBS_VERSION: "32.2.2"
+  OBS_VERSION: "33.0.0"
 
 permissions: {}  # No permissions by default
 
 jobs:
   build-linux:
     name: Linux
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
     steps:
@@ -26,19 +27,29 @@ jobs:
         with:
           submodules: recursive
           persist-credentials: false
+      - name: Verify OBS headers
+        shell: bash
+        run: |
+          git -C third_party/obs-studio fetch --depth 1 origin "refs/tags/${OBS_VERSION}:refs/tags/${OBS_VERSION}"
+          test "$(git -C third_party/obs-studio rev-parse HEAD)" = "$(git -C third_party/obs-studio rev-parse "refs/tags/${OBS_VERSION}^{commit}")"
       - name: Install Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
           go-version-file: 'go.mod'
       - name: Install OBS
         run: |
-          sudo add-apt-repository ppa:obsproject/obs-studio
+          curl --fail --location --output obs-studio.deb "https://github.com/obsproject/obs-studio/releases/download/${OBS_VERSION}/OBS-Studio-${OBS_VERSION}-Ubuntu-26.04-x86_64.deb"
           sudo apt update
-          sudo apt install -y libsimde-dev obs-studio
+          sudo apt install -y libsimde-dev ./obs-studio.deb
+          installed_version=$(dpkg-query -W -f='${Version}' obs-studio)
+          [[ "$installed_version" == "$OBS_VERSION"* ]] || { echo "Expected OBS $OBS_VERSION, got $installed_version"; exit 1; }
       - name: Build
         run: |
-          cp /lib/x86_64-linux-gnu/libobs.so.0 ./libobs.so
+          libobs_path=$(dpkg-query -L obs-studio | awk '/\/libobs\.so$/ { print; exit }')
+          test -n "$libobs_path" && test -f "$libobs_path"
+          cp -L "$libobs_path" ./libobs.so
           go build -buildmode=c-shared -o obs-studio-exporter.so
+          readelf -d obs-studio-exporter.so | grep -E 'Shared library: \[libobs\.so(\.[0-9]+)*\]'
       - name: Archive artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
@@ -57,6 +68,11 @@ jobs:
         with:
           submodules: recursive
           persist-credentials: false
+      - name: Verify OBS headers
+        shell: bash
+        run: |
+          git -C third_party/obs-studio fetch --depth 1 origin "refs/tags/${OBS_VERSION}:refs/tags/${OBS_VERSION}"
+          test "$(git -C third_party/obs-studio rev-parse HEAD)" = "$(git -C third_party/obs-studio rev-parse "refs/tags/${OBS_VERSION}^{commit}")"
       - name: Install Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
@@ -64,8 +80,9 @@ jobs:
       - name: Install OBS
         shell: pwsh
         run: |
-          Invoke-WebRequest -Uri "https://cdn-fastly.obsproject.com/downloads/OBS-Studio-${{ env.OBS_VERSION }}-Windows-x64-Installer.exe" -OutFile obs-studio-installer.exe
-          .\obs-studio-installer.exe /S | Out-Null
+          Invoke-WebRequest -Uri "https://github.com/obsproject/obs-studio/releases/download/${{ env.OBS_VERSION }}/OBS-Studio-${{ env.OBS_VERSION }}-Windows-x64-Installer.exe" -OutFile obs-studio-installer.exe
+          $installer = Start-Process -FilePath .\obs-studio-installer.exe -ArgumentList /S -Wait -PassThru
+          if ($installer.ExitCode -ne 0) { throw "OBS installer failed: $($installer.ExitCode)" }
       - name: Build
         shell: pwsh
         run: |
@@ -91,6 +108,11 @@ jobs:
         with:
           submodules: recursive
           persist-credentials: false
+      - name: Verify OBS headers
+        shell: bash
+        run: |
+          git -C third_party/obs-studio fetch --depth 1 origin "refs/tags/${OBS_VERSION}:refs/tags/${OBS_VERSION}"
+          test "$(git -C third_party/obs-studio rev-parse HEAD)" = "$(git -C third_party/obs-studio rev-parse "refs/tags/${OBS_VERSION}^{commit}")"
       - name: Install Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
@@ -98,7 +120,7 @@ jobs:
       - name: Install OBS
         run: |
           brew install simde
-          curl -L -o obs-macos-arm64.dmg "https://cdn-fastly.obsproject.com/downloads/OBS-Studio-${{ env.OBS_VERSION }}-macOS-Apple.dmg"
+          curl --fail --location -o obs-macos-arm64.dmg "https://github.com/obsproject/obs-studio/releases/download/${{ env.OBS_VERSION }}/OBS-Studio-${{ env.OBS_VERSION }}-macOS-Apple.dmg"
           hdiutil attach "./obs-macos-arm64.dmg"
       - name: Build
         run: |
@@ -114,14 +136,14 @@ jobs:
 
   release:
     name: Release
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     needs:
       - build-linux
       - build-windows
       - build-macos
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/canon' || startsWith(github.ref, 'refs/tags/v'))
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/canon' || startsWith(github.ref, 'refs/tags/v'))
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -149,15 +171,16 @@ jobs:
           cp dist/linux/obs-studio-exporter.so release/obs-studio-exporter-linux.so
           cp dist/windows/obs-studio-exporter.dll release/obs-studio-exporter-windows.dll
           cp dist/macos-arm64/obs-studio-exporter.so release/obs-studio-exporter-macos-arm64.so
-      - name: Publish Nightly Release
-        if: github.ref == 'refs/heads/canon'
+      - name: Publish OBS version prerelease
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/canon'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "nightly-${{ github.run_number }}" --title "Nightly ${{ github.run_number }}" --generate-notes --prerelease release/*
+          gh release create "v${OBS_VERSION}-build.${GITHUB_RUN_NUMBER}" --target "$GITHUB_SHA" --title "OBS ${OBS_VERSION} — build ${GITHUB_RUN_NUMBER}" --generate-notes --prerelease release/*
       - name: Publish Release
         if: github.ref_type == 'tag' && startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" --generate-notes --draft release/*
+          [[ "$GITHUB_REF_NAME" == "v${OBS_VERSION}" || "$GITHUB_REF_NAME" == "v${OBS_VERSION}-"* ]] || { echo "Release tag must match OBS ${OBS_VERSION}"; exit 1; }
+          gh release create "${GITHUB_REF_NAME}" --title "OBS ${OBS_VERSION} (${GITHUB_REF_NAME})" --generate-notes --draft release/*

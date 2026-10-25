@@ -55,7 +55,7 @@ This project is a little bit finnicky to compile and install.
 
 ### Linux
 
-1. Copy `libobs.so` from your OBS 64-bit install to the root of the exporter checkout directory.
+1. Copy `libobs.so` (following symlinks) from your OBS 33 64-bit install to the root of the exporter checkout directory. The official Linux package installs it under `/usr/local/lib/x86_64-linux-gnu/`.
 2. Build:
 
 ```bash
@@ -101,7 +101,8 @@ After you build the shared library, copy it into the OBS plugin directory for yo
 
 ## Notes
 
-- Linux builds in this repository currently link against `libobs.so.0`.
-- The workflow publishes prerelease GitHub Releases from `main`.
+- Linux builds link against the local `libobs.so` copy and use the runtime soname embedded in the OBS library.
+- The workflow builds against OBS Studio **33.0.0** and publishes prereleases from `main` and `canon` with tags such as `v33.0.0-build.18`.
+- Stable release tags must match the OBS version, for example `v33.0.0` (or `v33.0.0-1` for an exporter revision); tagged builds create draft releases.
 - If you only need the latest build output, check the latest release assets instead of the workflow artifacts.
 - Mandatory disclaimer: *This is not an official Google product.*
